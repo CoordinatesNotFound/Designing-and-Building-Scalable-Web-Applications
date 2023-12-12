@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 7800
+        volumeMounts:
+        - name: nginx-config-volume
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf # subPath in ConfigMap
+          readOnly: true
+      volumes:
+      - name: nginx-config-volume
+        configMap:
+          name: nginx-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    worker_processes 1;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      upstream qa-api {
+        server qa-api:7777;
+      }
+
+      upstream qa-ui {
+        server qa-ui:3000;
+      }
+
+      upstream sse {
+        server sse:7776;
+      }
+
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Host $server_name;
+
+      server {
+        listen 7800;
+
+        location /api/ {
+          proxy_pass http://qa-api/;
+
+          proxy_hide_header X-Frame-Options;
+          proxy_redirect off;
+        }
+
+        location / {
+          proxy_pass http://qa-ui;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_set_header Host $host;
+
+          proxy_hide_header X-Frame-Options;
+          proxy_redirect off;
+        }
+
+
+        location /sse {
+          proxy_pass http://sse;
+          proxy_http_version 1.1;
+          proxy_set_header Connection "";
+          proxy_buffering off;
+          proxy_cache off;
+          chunked_transfer_encoding off;
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: nginx
+  ports:
+  - name: metrics
+    port: 7800
+    targetPort: 7800
+  type: LoadBalancer

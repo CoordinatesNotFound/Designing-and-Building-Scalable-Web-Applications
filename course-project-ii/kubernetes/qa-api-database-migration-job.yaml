@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qa-api-database-migration-job
+spec:
+  template:
+    metadata:
+      name: qa-api-database-migration-job
+    spec:
+      containers:
+      - name: qa-api-database-migrations
+        image: qa-api-database-migrations:latest
+        imagePullPolicy: Never
+        env:
+        - name: FLYWAY_USER
+          valueFrom:
+            secretKeyRef:
+              name: qa-api-database-cluster-app
+              key: username
+              optional: false
+        - name: FLYWAY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: qa-api-database-cluster-app
+              key: password
+              optional: false
+      restartPolicy: Never
+  backoffLimit: 2

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qa-api-deployment
+spec:
+  selector:
+    matchLabels:
+      app: qa-api
+  template:
+    metadata:
+      labels:
+        app: qa-api
+    spec:
+      containers:
+      - name: qa-api
+        image: qa-api:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 7777
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 200m
+        env:
+        - name: PGPASS
+          valueFrom:
+            secretKeyRef:
+              name: qa-api-database-cluster-app
+              key: pgpass
+              optional: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qa-api
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 7777
+    targetPort: 7777
+    protocol: TCP
+    name: web
+  selector:
+    app: qa-api
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: qa-api-deployment-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: qa-api-deployment
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 10

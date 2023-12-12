@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sse-deployment
+  labels:
+    app: sse
+spec:
+  selector:
+    matchLabels:
+      app: sse
+  template:
+    metadata:
+      labels:
+        app: sse
+    spec:
+      containers:
+      - name: sse
+        image: sse:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 7776
+          # resources:
+          #   requests:
+          #     cpu: 100m
+          #   limits:
+          #     cpu: 200m
+          # env:
+          # - name: PGPASS
+          #   valueFrom:
+          #     secretKeyRef:
+          #       name: qa-api-database-cluster-app
+          #       key: pgpass
+          #       optional: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sse
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 7776
+    targetPort: 7776
+    protocol: TCP
+  selector:
+    app: sse
